@@ -1,101 +1,22 @@
-var http = require('http'); 
-var url = require('url');
-var fs = require('fs');
-var sys = require('sys');
-var url = require('url');
-var path = require('path');
-
-var querystring = require('querystring');
-var io = require('./socket.io/');
+var express = require('express'),
+	socketio = require('socket.io');
 
 
-work = require("./work/FileServer.js");
+var app = express.createServer();
+var io = socketio.listen(app);
 
-var server = http.createServer(function(req, res){
 
-	var uri = url.parse(req.url).pathname;  
-	var filename = path.join(process.cwd(), uri);  
-	
-console.log(uri);
-
-	if(uri == '/log/'){
-			
-
-			var body = '';
-			res.writeHead(200, {
-				'Content-Type': 'text/plain',
-				'Access-Control-Allow-Origin' : '*',
-				'Access-Control-Allow-Methods' : 'POST',
-				'Access-Control-Allow-Credentials' :  false,
-				'Access-Control-Max-Age' : '86400',
-				'Access-Control-Allow-Headers' : 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept'
-			});
-			req.addListener('data', function (dataPost) {
-
-				body += dataPost;
-				
-			}).addListener('end', function () {
-				console.log(body);
-				try{
-					var POST = JSON.parse(body);
-					io.broadcast({log:POST});
-					res.write('ok');  
-					//sys.puts("This is the post: " + sys.inspect(POST));
-				}catch(e){
-					res.write('error');  
-					res.write(body);  
-					console.log(e);
-					io.broadcast({log:'server error'});	
-					io.broadcast({log:e});
-				}
-				//res.writeHead("Access-Control-Allow-Origin", "*");
-				//res.writeHead(200);  
-				res.end();  
-				return;  
-			});
-
-	}else{
-
-		path.exists(filename, function(exists){  
-			if(!exists){  
-				res.writeHead(404);  
-				res.write('Error 404');  
-				res.end();  
-				return;  
-			}  
-
-			fs.readFile(filename, 'binary', function(err, file) {  
-				if(err){  
-					res.writeHead(500, {'Content-Type': 'text/plain'});  
-					res.write(err + '\n');  
-					res.end();  
-					return;  
-				}  
-
-				res.writeHead(200);  
-				res.write(file, 'binary');  
-				res.end();  
-			});
-		});
-	}
-
+app.get('/', function (req, res) {
+	res.sendfile(__dirname + '/www/websocket.html');
 });
+app.use( express.static(__dirname + '/www'));
 
-server.listen(8080 ,{
-	transportOptions:{
-		'xhr-polling':{
-			closeTimeout: 1000 * 60 * 5
-		}
-	}
-});
-
-
-var io = io.listen(server);
+app.listen( process.env.PORT || process.env.VCAP_APP_PORT ||  1337 );
 
 
 var users = {};
 
-io.on('connection', function(client){
+io.sockets.on('connection', function(client){
 
 
 	client.on('message', function(obj){
